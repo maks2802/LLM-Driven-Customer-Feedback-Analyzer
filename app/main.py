@@ -1,13 +1,24 @@
+import io
 import logging
 from typing import Annotated
 
 import models
+import pandas as pd
 import schemas
 from database import engine, get_db
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    UploadFile,
+)
 from llm_service import analyze_feedback
 from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from tasks import process_csv_in_background
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +66,48 @@ def analyze_single_text(request: TextFeedbackRequest, db: Annotated[Session, Dep
     )
 
     db.add(db_feedback)
-    db.commit()
-    db.refresh(db_feedback)
+    try:
+        db.commit()
+        db.refresh(db_feedback)
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error("Database error: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to save feedback to the database."
+        ) from e
 
     return db_feedback
+
+
+@app.post("/analyze/csv/")
+async def analyze_csv_upload(
+    background_tasks: BackgroundTasks, file: Annotated[UploadFile, File(...)]
+):
+    """
+    Accepts a CSV file, reads the feedback column, analyzes each row
+    via LLM, and saves to the database.
+    """
+
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
+
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+        df = df.where(pd.notnull(df), None)
+        records = df.to_dict(orient="records")
+
+        background_tasks.add_task(process_csv_in_background, records=records)
+
+        return {
+            "message": "File successfully uploaded.",
+            "details": f"Accepted {len(records)} rows for processing.",
+        }
+
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.") from None
+    except Exception as e:
+        logger.error(f"Error reading CSV file: {e}")
+        raise HTTPException(
+            status_code=500, detail="An error occurred while reading the file."
+        ) from e
