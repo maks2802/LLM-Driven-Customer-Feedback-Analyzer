@@ -1,5 +1,6 @@
 import io
 import logging
+from collections import Counter
 from typing import Annotated, Optional
 
 import models
@@ -7,7 +8,7 @@ import pandas as pd
 import schemas
 from database import engine, get_db
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, UploadFile
-from llm_service import analyze_feedback
+from llm_service import analyze_feedback, generate_executive_summary
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -73,10 +74,8 @@ def analyze_single_text(request: TextFeedbackRequest, db: Annotated[Session, Dep
     return db_feedback
 
 
-@app.post("/analyze/csv/")
-async def analyze_csv_upload(
-    background_tasks: BackgroundTasks, file: Annotated[UploadFile, File(...)]
-):
+@app.post("/upload/csv/")
+async def upload_csv(background_tasks: BackgroundTasks, file: Annotated[UploadFile, File(...)]):
     """
     Accepts a CSV file, reads the feedback column, analyzes each row
     via LLM, and saves to the database.
@@ -120,6 +119,48 @@ async def analyze_csv_upload(
         raise HTTPException(
             status_code=500, detail="An error occurred while reading the file."
         ) from e
+
+
+@app.get("/analyze/summary/", response_model=schemas.ExecutiveSummaryResponse)
+def get_global_executive_summary(db: Annotated[Session, Depends(get_db)]):
+    """Generates a global executive summary and actionable recommendations
+    based on the whole dataset stored in the database."""
+    feedbacks = db.query(models.Feedback).all()
+
+    if not feedbacks:
+        raise HTTPException(
+            status_code=404,
+            detail="No feedback records found in the database. Please upload or submit data first.",
+        )
+
+    total_count = len(feedbacks)
+    sentiments = Counter([f.llm_sentiment for f in feedbacks if f.llm_sentiment])
+    topics = Counter([f.topic for f in feedbacks if f.topic])
+
+    sample_summaries = [
+        {"topic": f.topic, "sentiment": f.llm_sentiment, "summary": f.summary}
+        for f in feedbacks
+        if f.summary
+    ]
+
+    aggregated_context = {
+        "total_feedbacks": total_count,
+        "sentiment_breakdown": dict(sentiments),
+        "topic_breakdown": dict(topics),
+        "individual_summaries": sample_summaries[:150],
+    }
+
+    llm_report = generate_executive_summary(aggregated_context)
+
+    top_topic_list = [{"topic": topic, "count": count} for topic, count in topics.most_common()]
+
+    return {
+        "total_feedback_analyzed": total_count,
+        "sentiment_breakdown": dict(sentiments),
+        "top_topics": top_topic_list,
+        "executive_summary": llm_report.get("executive_summary", ""),
+        "global_recommendations": llm_report.get("global_recommendations", []),
+    }
 
 
 @app.get("/feedbacks/", response_model=schemas.PaginatedFeedbackResponse)

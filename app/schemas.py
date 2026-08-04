@@ -30,3 +30,16 @@ class PaginatedFeedbackResponse(BaseModel):
     page: int
     size: int
     items: list[FeedbackResponse]
+
+
+class TopicCount(BaseModel):
+    topic: str
+    count: int
+
+
+class ExecutiveSummaryResponse(BaseModel):
+    total_feedback_analyzed: int
+    sentiment_breakdown: dict[str, int]
+    top_topics: list[TopicCount]
+    executive_summary: str
+    global_recommendations: list[str]
