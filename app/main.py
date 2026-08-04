@@ -13,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from tasks import process_csv_in_background
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 models.Base.metadata.create_all(bind=engine)
@@ -86,7 +87,22 @@ async def analyze_csv_upload(
 
     try:
         contents = await file.read()
-        df = pd.read_csv(io.BytesIO(contents))
+
+        decoded_content = contents.decode("utf-8")
+
+        cleaned_lines = []
+        for line in decoded_content.splitlines():
+            line = line.strip()
+
+            if line.startswith('"') and line.endswith('"'):
+                line = line[1:-1].replace('""', '"')
+
+            cleaned_lines.append(line)
+
+        cleaned_csv = "\n".join(cleaned_lines)
+
+        df = pd.read_csv(io.StringIO(cleaned_csv), skipinitialspace=True)
+        df.columns = df.columns.str.strip()
         df = df.where(pd.notnull(df), None)
         records = df.to_dict(orient="records")
 

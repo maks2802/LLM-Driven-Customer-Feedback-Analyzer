@@ -12,13 +12,17 @@ logger = logging.getLogger(__name__)
 def process_csv_in_background(records: list[dict]):
     """Background function for CSV row processing."""
     db: Session = SessionLocal()
-    BATCH_SIZE = 50
+    BATCH_SIZE = 5
 
     try:
         processed_count = 0
 
         for row in records:
-            raw_text = row.get("Text")
+            raw_text = None
+            for key, val in row.items():
+                if key and key.strip().lower() in ["text", "feedback", "review", "comment"]:
+                    raw_text = val
+                    break
 
             if not raw_text or not str(raw_text).strip():
                 logger.warning(f"Skipping empty feedback row: {row}")
