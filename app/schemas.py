@@ -23,3 +23,10 @@ class FeedbackResponse(FeedbackBase):
 
     class Config:
         from_attributes = True
+
+
+class PaginatedFeedbackResponse(BaseModel):
+    total: int
+    page: int
+    size: int
+    items: list[FeedbackResponse]
