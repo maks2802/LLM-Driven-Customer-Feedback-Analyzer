@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class FeedbackBase(BaseModel):
@@ -20,9 +20,7 @@ class FeedbackResponse(FeedbackBase):
     topic: str | None = None
     summary: str | None = None
     recommendation: str | None = None
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaginatedFeedbackResponse(BaseModel):
