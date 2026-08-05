@@ -2,11 +2,12 @@ import asyncio
 import logging
 from typing import Optional
 
-import models
 import pandas as pd
-from database import SessionLocal
-from llm_service import analyze_feedback_async
 from sqlalchemy.orm import Session
+
+from . import models
+from .database import SessionLocal
+from .llm_service import analyze_feedback_async
 
 logger = logging.getLogger(__name__)
 

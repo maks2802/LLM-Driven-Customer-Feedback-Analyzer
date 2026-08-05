@@ -3,11 +3,12 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from main import app, get_db
-from models import Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+from app.main import app, get_db
+from app.models import Base
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///:memory:")
 
@@ -57,7 +58,7 @@ def test_read_root(client):
     assert response.json() == {"message": "Feedback Analyzer is running."}
 
 
-@patch("main.analyze_feedback")
+@patch("app.main.analyze_feedback")
 def test_analyze_single_text_success(mock_analyze, client):
     """Verifies successful text analysis."""
     mock_analyze.return_value = {
@@ -95,7 +96,7 @@ def test_analyze_single_text_empty(client):
     assert response.json()["detail"] == "Feedback text cannot be empty."
 
 
-@patch("main.analyze_feedback")
+@patch("app.main.analyze_feedback")
 def test_get_feedbacks_pagination_and_filtering(mock_analyze, client):
     """Verifies the feedback retrieval endpoint, including pagination and filtering support."""
     mock_analyze.return_value = {
