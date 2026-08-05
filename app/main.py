@@ -67,7 +67,7 @@ def analyze_single_text(request: TextFeedbackRequest, db: Annotated[Session, Dep
         db.refresh(db_feedback)
     except SQLAlchemyError as e:
         db.rollback()
-        logger.error("Database error: {e}")
+        logger.error(f"Database error: {e}")
         raise HTTPException(
             status_code=500, detail="Failed to save feedback to the database."
         ) from e

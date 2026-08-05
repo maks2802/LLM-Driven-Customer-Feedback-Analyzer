@@ -1,3 +1,4 @@
+import os
 from unittest.mock import patch
 
 import pytest
@@ -8,13 +9,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///:memory:")
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+else:
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -53,8 +57,8 @@ def test_read_root(client):
     assert response.json() == {"message": "Feedback Analyzer is running."}
 
 
-@patch("app.main.analyze_feedback")
-def text_analyze_single_text_success(mock_analyze, client):
+@patch("main.analyze_feedback")
+def test_analyze_single_text_success(mock_analyze, client):
     """Verifies successful text analysis."""
     mock_analyze.return_value = {
         "llm_sentiment": "Positive",
@@ -91,7 +95,7 @@ def test_analyze_single_text_empty(client):
     assert response.json()["detail"] == "Feedback text cannot be empty."
 
 
-@patch("app.main.analyze_feedback")
+@patch("main.analyze_feedback")
 def test_get_feedbacks_pagination_and_filtering(mock_analyze, client):
     """Verifies the feedback retrieval endpoint, including pagination and filtering support."""
     mock_analyze.return_value = {
@@ -103,7 +107,8 @@ def test_get_feedbacks_pagination_and_filtering(mock_analyze, client):
 
     payload = {"text": "It crashes every time."}
 
-    client.post("/analyze/text/", json=payload)
+    create_response = client.post("/analyze/text/", json=payload)
+    assert create_response.status_code == 200
 
     response = client.get("/feedbacks/?page=1&size=10")
     assert response.status_code == 200

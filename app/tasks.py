@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Optional
 
 import models
 import pandas as pd
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 
-async def process_csv_in_background(records: list[dict], batch_id: str = None):
+async def process_csv_in_background(records: list[dict], batch_id: Optional[str] = None):
     """Asynchronous background function for CSV processing."""
     semaphore = asyncio.Semaphore(20)
 
