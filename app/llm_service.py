@@ -103,11 +103,9 @@ def generate_executive_summary(feedbacks_summary_data: dict) -> dict:
     Respond ONLY with a valid JSON object.
     """
 
-    user_content = f"Customer Feedback Aggregated Data:\n{json.dumps(
-        feedbacks_summary_data,
-        ensure_ascii=False,
-        indent=2
-    )}"
+    user_content = f"Customer Feedback Aggregated Data:\n{
+        json.dumps(feedbacks_summary_data, ensure_ascii=False, indent=2)
+    }"
 
     try:
         response = client.chat.completions.create(

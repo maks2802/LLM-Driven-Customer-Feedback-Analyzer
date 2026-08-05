@@ -1,5 +1,6 @@
 import io
 import logging
+import uuid
 from collections import Counter
 from typing import Annotated, Optional
 
@@ -105,10 +106,13 @@ async def upload_csv(background_tasks: BackgroundTasks, file: Annotated[UploadFi
         df = df.where(pd.notnull(df), None)
         records = df.to_dict(orient="records")
 
-        background_tasks.add_task(process_csv_in_background, records=records)
+        batch_id = str(uuid.uuid4())
+
+        background_tasks.add_task(process_csv_in_background, records=records, batch_id=batch_id)
 
         return {
             "message": "File successfully uploaded.",
+            "batch_id": batch_id,
             "details": f"Accepted {len(records)} rows for processing.",
         }
 
@@ -122,15 +126,25 @@ async def upload_csv(background_tasks: BackgroundTasks, file: Annotated[UploadFi
 
 
 @app.get("/analyze/summary/", response_model=schemas.ExecutiveSummaryResponse)
-def get_global_executive_summary(db: Annotated[Session, Depends(get_db)]):
+def get_global_executive_summary(
+    db: Annotated[Session, Depends(get_db)],
+    batch_id: Optional[str] = Query(
+        None, description="Filter summary by specific CSV upload batch"
+    ),
+):
     """Generates a global executive summary and actionable recommendations
     based on the whole dataset stored in the database."""
-    feedbacks = db.query(models.Feedback).all()
+    query = db.query(models.Feedback)
+
+    if batch_id:
+        query = query.filter(models.Feedback.batch_id == batch_id)
+
+    feedbacks = query.all()
 
     if not feedbacks:
         raise HTTPException(
             status_code=404,
-            detail="No feedback records found in the database. Please upload or submit data first.",
+            detail="No feedback records found for the given criteria.",
         )
 
     total_count = len(feedbacks)

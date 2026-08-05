@@ -17,6 +17,7 @@ class Feedback(Base):
     confidence_score = Column(Float, nullable=True)
     feedback_date = Column(DateTime, nullable=True)
 
+    batch_id = Column(String, index=True, nullable=True)
     llm_sentiment = Column(String, nullable=True)
     topic = Column(String, nullable=True)
     summary = Column(Text, nullable=True)

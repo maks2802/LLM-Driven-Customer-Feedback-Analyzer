@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 
-def process_csv_in_background(records: list[dict]):
+def process_csv_in_background(records: list[dict], batch_id: str = None):
     """Background function for CSV row processing."""
     db: Session = SessionLocal()
     BATCH_SIZE = 5
@@ -54,6 +54,7 @@ def process_csv_in_background(records: list[dict]):
                 customer_id=str(row.get("User ID")) if row.get("User ID") else None,
                 location=row.get("Location"),
                 confidence_score=confidence_score,
+                batch_id=batch_id,
                 llm_sentiment=llm_analysis.get("llm_sentiment"),
                 topic=llm_analysis.get("topic"),
                 summary=llm_analysis.get("summary"),
