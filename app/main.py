@@ -34,13 +34,13 @@ app = FastAPI(
 )
 
 
-@app.get("/")
+@app.get("/", tags=["System"], summary="Check API Health")
 def read_root():
     """Root endpoint to check if the API is running."""
     return {"message": "Feedback Analyzer is running."}
 
 
-@app.post("/analyze/text/", response_model=schemas.FeedbackResponse)
+@app.post("/analyze/text/", response_model=schemas.FeedbackResponse, tags=["Analysis"])
 def analyze_single_text(request: TextFeedbackRequest, db: Annotated[Session, Depends(get_db)]):
     """Receives raw feedback, analyzes it via OpenAI, and saves the result to the database."""
     if not request.text.strip():
@@ -75,8 +75,11 @@ def analyze_single_text(request: TextFeedbackRequest, db: Annotated[Session, Dep
     return db_feedback
 
 
-@app.post("/upload/csv/")
-async def upload_csv(background_tasks: BackgroundTasks, file: Annotated[UploadFile, File(...)]):
+@app.post("/upload/csv/", tags=["Analysis"])
+async def upload_csv(
+    background_tasks: BackgroundTasks,
+    file: Annotated[UploadFile, File(description="CSV file with customer feedback")],
+):
     """
     Accepts a CSV file, reads the feedback column, analyzes each row
     via LLM, and saves to the database.
@@ -125,7 +128,7 @@ async def upload_csv(background_tasks: BackgroundTasks, file: Annotated[UploadFi
         ) from e
 
 
-@app.get("/analyze/summary/", response_model=schemas.ExecutiveSummaryResponse)
+@app.get("/analyze/summary/", response_model=schemas.ExecutiveSummaryResponse, tags=["Analysis"])
 def get_global_executive_summary(
     db: Annotated[Session, Depends(get_db)],
     batch_id: Optional[str] = Query(
@@ -177,7 +180,7 @@ def get_global_executive_summary(
     }
 
 
-@app.get("/feedbacks/", response_model=schemas.PaginatedFeedbackResponse)
+@app.get("/feedbacks/", response_model=schemas.PaginatedFeedbackResponse, tags=["Analysis"])
 def get_feedbacks(
     db: Annotated[Session, Depends(get_db)],
     page: int = Query(1, ge=1, description="Page Number"),
@@ -203,7 +206,7 @@ def get_feedbacks(
     return {"total": total, "page": page, "size": size, "items": feedbacks}
 
 
-@app.get("/feedbacks/{feedback_id}", response_model=schemas.FeedbackResponse)
+@app.get("/feedbacks/{feedback_id}", response_model=schemas.FeedbackResponse, tags=["Analysis"])
 def get_feedback_by_id(feedback_id: int, db: Annotated[Session, Depends(get_db)]):
     """Retrieve detailed information for a specific feedback entry by its ID."""
     feedback = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
